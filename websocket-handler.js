@@ -1,4 +1,4 @@
-const ws = new WebSocket("ws://localhost:3000");
+const ws = new WebSocket("wss://multicanvas.onrender.com/");
 
 const clientId = Math.random().toString(36).substr(2, 9);
 console.log(`Client ID: ${clientId}`);
