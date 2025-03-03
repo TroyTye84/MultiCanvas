@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Drawing</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            border: 1px solid black;
+            background-color: white;
+        }
+        button {
+            position: absolute;
+            top: 10px;
+            z-index: 10;
+        }
+        #undoBtn { left: 120px; }
+        #recognized-text-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Ensures text doesn't interfere with drawing */
+}
+.recognized-text {
+    position: absolute;
+    font-size: 20px;
+    color: blue;
+    font-family: Arial, sans-serif;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 2px 5px;
+    border-radius: 5px;
+}
+
+    </style>
+</head>
+<body>
+    <button id="screenshotBtn">Share Screenshot</button>
+    <button id="undoBtn">Undo</button>
+    <button id="toggleBoundingBoxBtn" style="left: 240px;">Toggle Bounding Boxes</button>
+    <div id="recognized-text-container"></div>
+    <canvas id="canvas"></canvas>
+    <script src="canvas-drawing.js"></script>
+    <script src="websocket-handler.js"></script>
+
+</body>
+</html>
