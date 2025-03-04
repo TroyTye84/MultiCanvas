@@ -31,6 +31,16 @@ wss.on("connection", (ws) => {
                     broadcast(data, ws);
                     break;
                 
+                case "screenShare":
+                    console.log("Received screen share frame");
+                    broadcast(data, ws);
+                    break;
+
+                case "stopScreenShare":
+                    console.log("Screen sharing stopped");
+                    broadcast(data, ws);
+                    break;
+
                 default:
                     console.warn("Unknown message type received:", data.type);
             }
@@ -52,7 +62,7 @@ wss.on("connection", (ws) => {
 // Broadcast function to send data to all connected clients
 function broadcast(data, sender) {
     clients.forEach(client => {
-        if (client !== sender && client.readyState === WebSocket.OPEN) {
+        if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(data));
         }
     });

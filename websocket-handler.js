@@ -7,27 +7,27 @@ strokes[clientId] = [];
 
 ws.onmessage = (message) => {
     const data = JSON.parse(message.data);
-    if (data.type === "screenshot") {
-        drawScreenshot(data.image);
-    } else if (data.type === "draw") {
+
+    if (data.type === "screenShare") {  // ✅ Ensure it's "screenShare"
+        console.log("Received screen share frame");
+        drawLiveScreen(data.image);     // ✅ Broadcast to all clients
+    } 
+    else if (data.type === "draw") {
         console.log(`Received stroke from Client ${data.clientId}`);
 
-        // ✅ Ensure strokes array exists
         if (!strokes[data.clientId]) {
             strokes[data.clientId] = [];
         }
 
         strokes[data.clientId].push(data.stroke);
-
-        // ✅ Draw the stroke on all clients
         draw(data.stroke.x, data.stroke.y, data.stroke.prevX, data.stroke.prevY, data.stroke.lineWidth);
     } 
-    
     else if (data.type === "recognizedText") {
         console.log(`Received recognized text from Client ${data.clientId}: ${data.text}`);
         showRecognizedText(data.text, data.x, data.y);
     }
 };
+
 
 
 function showRecognizedText(text, x, y) {
@@ -125,40 +125,3 @@ function sendToGoogle(trace, lineIndex) {
 }
 
 
-// 📸 **Capture a screenshot**
-async function captureScreenshot() {
-    try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const video = document.createElement("video");
-        video.srcObject = stream;
-        video.play();
-
-        video.onloadedmetadata = async () => {
-            const tempCanvas = document.createElement("canvas");
-            tempCanvas.width = video.videoWidth;
-            tempCanvas.height = video.videoHeight;
-            const tempCtx = tempCanvas.getContext("2d");
-
-            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-            const imgData = tempCanvas.toDataURL("image/png");
-
-            ws.send(JSON.stringify({ type: "screenshot", image: imgData }));
-            drawScreenshot(imgData);
-
-            stream.getTracks().forEach(track => track.stop());
-        };
-    } catch (error) {
-        console.error("Error capturing screenshot:", error);
-    }
-}
-
-// 📸 **Display screenshot on canvas**
-function drawScreenshot(imgData) {
-    const img = new Image();
-    img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    };
-    img.src = imgData;
-}
-document.getElementById("screenshotBtn").addEventListener("click", captureScreenshot);

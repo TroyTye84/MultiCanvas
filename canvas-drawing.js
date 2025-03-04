@@ -13,22 +13,113 @@ let boundingBoxes = []; // Stores merged bounding boxes
 let showBoundingBoxes = true; // State to track visibility of bounding boxes
 let undoStack = []; // Stack to store strokes for undo functionality
 let currentStrokePoints = []; // Temporary array to collect points during a stroke
+let screenshotImage = null; // Store the screenshot image
+let screenStream;
+let screenSharing = false;
+
 
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const rect = canvas.getBoundingClientRect();
+
+    // Store current canvas content
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext("2d");
+    tempCtx.drawImage(canvas, 0, 0);
+
+    // Resize the actual canvas
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    // Restore previous content
+    ctx.drawImage(tempCanvas, 0, 0);
+
+    // Redraw strokes and bounding boxes
+    redrawCanvas();
 }
+
+
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
+
 function getCanvasCoords(event) {
     const rect = canvas.getBoundingClientRect();
-    return {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-    };
+    const scaleX = canvas.width / rect.width;    // Adjust for X scaling
+    const scaleY = canvas.height / rect.height;  // Adjust for Y scaling
+
+    if (event.touches) {
+        return {
+            x: (event.touches[0].clientX - rect.left) * scaleX,
+            y: (event.touches[0].clientY - rect.top) * scaleY
+        };
+    } else {
+        return {
+            x: (event.clientX - rect.left) * scaleX,
+            y: (event.clientY - rect.top) * scaleY
+        };
+    }
 }
 
+// Handle touch start
+canvas.addEventListener("touchstart", (e) => {
+    e.preventDefault(); // Prevent scrolling while drawing
+    isDrawing = true;
+    trace = [];
+    const { x, y } = getCanvasCoords(e);
+    lastX = x;
+    lastY = y;
+
+    if (!strokes[clientId]) {
+        strokes[clientId] = [];
+    }
+
+    currentStrokePoints = [];
+    trace.push({ x, y, t: Date.now() });
+});
+
+// Handle touch move
+canvas.addEventListener("touchmove", (e) => {
+    e.preventDefault(); // Prevent scrolling
+    if (!isDrawing) return;
+
+    const { x, y } = getCanvasCoords(e);
+    const stroke = { x, y, prevX: lastX, prevY: lastY, lineWidth };
+
+    draw(stroke.x, stroke.y, stroke.prevX, stroke.prevY, stroke.lineWidth);
+    currentStrokePoints.push(stroke);
+
+    let strokeId = strokes[clientId].length - 1;
+
+    if (!Array.isArray(strokes[clientId][strokeId])) {
+        strokes[clientId][strokeId] = [];
+    }
+
+    strokes[clientId][strokeId].push(stroke);
+    trace.push({ x, y, t: Date.now() });
+
+    sendDrawingData(stroke);
+
+    lastX = x;
+    lastY = y;
+});
+
+// Handle touch end
+canvas.addEventListener("touchend", () => {
+    isDrawing = false;
+    if (trace.length > 0) {
+        let newBox = getBoundingBox(trace);
+        mergeBoundingBoxes(newBox);
+    }
+
+    if (strokes[clientId]) {
+        strokes[clientId].push([...currentStrokePoints]);
+    }
+
+    sendToGoogle(trace, lineIndex);
+    lineIndex++;
+});
 canvas.addEventListener("mousedown", (e) => {
     isDrawing = true;
     trace = [];
@@ -46,6 +137,7 @@ canvas.addEventListener("mousedown", (e) => {
     
     // Add the initial point
     trace.push({ x, y, t: Date.now() });
+    
 });
 
 
@@ -60,7 +152,7 @@ canvas.addEventListener("mouseup", () => {
     if (strokes[clientId]) {
         strokes[clientId].push([...currentStrokePoints]); // Store full stroke
     }
-    
+    redrawCanvas();
     sendToGoogle(trace, lineIndex);
     lineIndex++;
 });
@@ -90,6 +182,7 @@ canvas.addEventListener("mousemove", (e) => {
 
     lastX = x;
     lastY = y;
+
 });
 
 function sendDrawingData(stroke) {
@@ -161,8 +254,7 @@ document.getElementById("toggleBoundingBoxBtn").addEventListener("click", () => 
 });
 
 function redrawCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+    // ✅ Make sure to draw strokes on top of video feed
     for (const client in strokes) {
         if (!Array.isArray(strokes[client])) continue;
 
@@ -175,7 +267,7 @@ function redrawCanvas() {
         });
     }
 
-    // Only draw bounding boxes if showBoundingBoxes is true
+    // ✅ Draw bounding boxes if enabled
     if (showBoundingBoxes) {
         ctx.strokeStyle = "red";
         ctx.lineWidth = 1;
@@ -184,6 +276,8 @@ function redrawCanvas() {
         });
     }
 }
+
+
 
 function showRecognizedText(text, x, y) {
     const textDiv = document.createElement("div");
@@ -254,3 +348,121 @@ function recalculateBoundingBoxes() {
         });
     }
 }
+async function startScreenShare() {
+    try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: 30, width: 1920, height: 1080 } // High quality screen share
+        });
+
+        const video = document.createElement("video");
+        video.srcObject = screenStream;
+        video.play();
+        screenSharing = true;
+
+        function captureFrame() {
+            if (!screenSharing) return; // Stop if sharing is turned off
+        
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext("2d");
+        
+            // ✅ Draw video frame first (background)
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+        
+            // ✅ Send frame to WebSocket for all clients
+            const imgData = tempCanvas.toDataURL("image/jpeg", 0.8); // Send compressed image
+            ws.send(JSON.stringify({ type: "screenShare", image: imgData }));
+        
+            // ✅ Update the local canvas (but don’t clear it)
+            ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+        
+            // ✅ Redraw strokes **on top of the video feed**
+            redrawCanvas();
+        
+            requestAnimationFrame(captureFrame); // Capture next frame
+        }
+        
+
+        // ✅ Start capturing frames immediately
+        requestAnimationFrame(captureFrame);
+
+    } catch (error) {
+        console.error("Error starting screen share:", error);
+    }
+}
+function drawLiveScreen(imgData) {
+    const img = new Image();
+    img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear previous frame
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = imgData;
+}
+
+function drawScreenshot(imgData) {
+    screenshotImage = new Image();
+    screenshotImage.onload = () => {
+        // ✅ Store the screenshot in memory
+        screenshotImage = screenshotImage; 
+        redrawCanvas(); // ✅ Ensures strokes are drawn on top of the screenshot
+    };
+    screenshotImage.src = imgData;
+}
+function stopScreenShare() {
+    if (!screenStream) return;
+    
+    screenSharing = false;
+    screenStream.getTracks().forEach(track => track.stop());
+    screenStream = null;
+
+    console.log("Screen sharing stopped");
+}
+document.getElementById("screenshotBtn").addEventListener("click", () => {
+    if (screenSharing) {
+        stopScreenShare();
+        document.getElementById("screenshotBtn").innerText = "Start Screen Share";
+    } else {
+        startScreenShare();
+        document.getElementById("screenshotBtn").innerText = "Stop Screen Share";
+    }
+});
+// 📸 **Capture a screenshot**
+async function captureScreenshot() {
+    try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ 
+            video: { 
+                width: 1920, // Request Full HD
+                height: 1080, 
+                frameRate: 30 // Higher frame rate for better quality
+            } 
+        });
+
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.play();
+
+        video.onloadedmetadata = async () => {
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = video.videoWidth;
+            tempCanvas.height = video.videoHeight;
+            const tempCtx = tempCanvas.getContext("2d");
+
+            // Capture the screenshot with better quality
+            tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const imgData = tempCanvas.toDataURL("image/png"); // PNG for higher quality
+
+            // ✅ Immediately display the high-quality screenshot
+            drawScreenshot(imgData);
+
+            // ✅ Send high-quality image via WebSocket
+            ws.send(JSON.stringify({ type: "screenshot", image: imgData }));
+
+            // Stop video stream after capture
+            stream.getTracks().forEach(track => track.stop());
+        };
+    } catch (error) {
+        console.error("Error capturing screenshot:", error);
+    }
+}
+

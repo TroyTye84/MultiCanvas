@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC Drawing</title>
+
+    <!-- Open Graph Meta Tags for iMessage Preview -->
+    <meta property="og:title" content="Join Live Whiteboard">
+    <meta property="og:description" content="Tap to start drawing in real-time.">
+    <meta property="og:image" content="https://multicanvas.onrender.com/screenshot.png">
+    <meta property="og:url" content="https://multicanvas.onrender.com">
+    <meta property="og:type" content="website">
+
     <style>
         body, html {
             margin: 0;
@@ -26,23 +34,22 @@
         }
         #undoBtn { left: 120px; }
         #recognized-text-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none; /* Ensures text doesn't interfere with drawing */
-}
-.recognized-text {
-    position: absolute;
-    font-size: 20px;
-    color: blue;
-    font-family: Arial, sans-serif;
-    background: rgba(255, 255, 255, 0.7);
-    padding: 2px 5px;
-    border-radius: 5px;
-}
-
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .recognized-text {
+            position: absolute;
+            font-size: 20px;
+            color: blue;
+            font-family: Arial, sans-serif;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 2px 5px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -51,8 +58,48 @@
     <button id="toggleBoundingBoxBtn" style="left: 240px;">Toggle Bounding Boxes</button>
     <div id="recognized-text-container"></div>
     <canvas id="canvas"></canvas>
+
     <script src="canvas-drawing.js"></script>
     <script src="websocket-handler.js"></script>
 
+    <script>
+        const ws = new WebSocket("wss://multicanvas.onrender.com/");
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        // Capture Screenshot and Send to Server
+        document.getElementById("screenshotBtn").addEventListener("click", async () => {
+            const imageData = canvas.toDataURL("image/png"); // Convert canvas to image
+            const response = await fetch("https://multicanvas.onrender.com/upload", {
+                method: "POST",
+                body: JSON.stringify({ image: imageData }),
+                headers: { "Content-Type": "application/json" }
+            });
+
+            const result = await response.json();
+            if (result.url) {
+                shareLink(result.url);
+            } else {
+                console.error("Failed to upload screenshot.");
+            }
+        });
+
+        // Share the Whiteboard Link with the Screenshot Preview
+        function shareLink(imageUrl) {
+            if (navigator.share) {
+                navigator.share({
+                    title: "Join Live Whiteboard",
+                    text: "Tap to start drawing in real-time.",
+                    url: "https://multicanvas.onrender.com"
+                }).then(() => {
+                    console.log("Whiteboard link shared!");
+                }).catch(error => {
+                    console.error("Error sharing:", error);
+                });
+            } else {
+                alert("Web Share API not supported on this device.");
+            }
+        }
+    </script>
 </body>
 </html>
