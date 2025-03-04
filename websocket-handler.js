@@ -8,9 +8,9 @@ strokes[clientId] = [];
 ws.onmessage = (message) => {
     const data = JSON.parse(message.data);
 
-    if (data.type === "screenShare") {  // ✅ Ensure it's "screenShare"
+    if (data.type === "screenShare") {
         console.log("Received screen share frame");
-        drawLiveScreen(data.image);     // ✅ Broadcast to all clients
+        drawLiveScreen(data.image); // ✅ Always draws background first
     } 
     else if (data.type === "draw") {
         console.log(`Received stroke from Client ${data.clientId}`);
@@ -20,13 +20,19 @@ ws.onmessage = (message) => {
         }
 
         strokes[data.clientId].push(data.stroke);
+
+        // ✅ Ensure strokes are always on top
         draw(data.stroke.x, data.stroke.y, data.stroke.prevX, data.stroke.prevY, data.stroke.lineWidth);
+        redrawCanvas(); // ✅ Force redraw to keep strokes above video
     } 
     else if (data.type === "recognizedText") {
         console.log(`Received recognized text from Client ${data.clientId}: ${data.text}`);
         showRecognizedText(data.text, data.x, data.y);
     }
 };
+
+
+
 
 
 

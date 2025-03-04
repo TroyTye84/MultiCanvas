@@ -62,10 +62,11 @@ wss.on("connection", (ws) => {
 // Broadcast function to send data to all connected clients
 function broadcast(data, sender) {
     clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
+        if (client !== sender && client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(data));
         }
     });
 }
+
 
 server.listen(3000, () => console.log("Server running on port 3000"));

@@ -254,7 +254,9 @@ document.getElementById("toggleBoundingBoxBtn").addEventListener("click", () => 
 });
 
 function redrawCanvas() {
-    // ✅ Make sure to draw strokes on top of video feed
+    // ✅ Do NOT clear the canvas (this prevents overwriting the screen share)
+
+    // ✅ Redraw strokes on top of the screen share
     for (const client in strokes) {
         if (!Array.isArray(strokes[client])) continue;
 
@@ -267,7 +269,7 @@ function redrawCanvas() {
         });
     }
 
-    // ✅ Draw bounding boxes if enabled
+    // ✅ Draw bounding boxes on top
     if (showBoundingBoxes) {
         ctx.strokeStyle = "red";
         ctx.lineWidth = 1;
@@ -276,6 +278,7 @@ function redrawCanvas() {
         });
     }
 }
+
 
 
 
@@ -351,7 +354,7 @@ function recalculateBoundingBoxes() {
 async function startScreenShare() {
     try {
         screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { frameRate: 30, width: 1920, height: 1080 } // High quality screen share
+            video: { frameRate: 30, width: 1920, height: 1080 }
         });
 
         const video = document.createElement("video");
@@ -360,45 +363,50 @@ async function startScreenShare() {
         screenSharing = true;
 
         function captureFrame() {
-            if (!screenSharing) return; // Stop if sharing is turned off
-        
+            if (!screenSharing) return;
+
             const tempCanvas = document.createElement("canvas");
             tempCanvas.width = canvas.width;
             tempCanvas.height = canvas.height;
             const tempCtx = tempCanvas.getContext("2d");
-        
-            // ✅ Draw video frame first (background)
+
+            // ✅ Draw the screen share **before** strokes
             tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-        
-            // ✅ Send frame to WebSocket for all clients
-            const imgData = tempCanvas.toDataURL("image/jpeg", 0.8); // Send compressed image
-            ws.send(JSON.stringify({ type: "screenShare", image: imgData }));
-        
-            // ✅ Update the local canvas (but don’t clear it)
             ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
-        
-            // ✅ Redraw strokes **on top of the video feed**
+
+            // ✅ Immediately redraw strokes on top
             redrawCanvas();
-        
-            requestAnimationFrame(captureFrame); // Capture next frame
+
+            // ✅ Send video frame to remote clients
+            const imgData = tempCanvas.toDataURL("image/jpeg", 0.8);
+            ws.send(JSON.stringify({ type: "screenShare", image: imgData }));
+
+            requestAnimationFrame(captureFrame);
         }
-        
 
-        // ✅ Start capturing frames immediately
         requestAnimationFrame(captureFrame);
-
     } catch (error) {
         console.error("Error starting screen share:", error);
     }
 }
+
+
+
 function drawLiveScreen(imgData) {
     const img = new Image();
     img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear previous frame
+        // ✅ Draw screen share (background)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // ✅ Immediately redraw all strokes on top
+        redrawCanvas();
     };
     img.src = imgData;
 }
+
+
+
 
 function drawScreenshot(imgData) {
     screenshotImage = new Image();
