@@ -80,97 +80,108 @@
         <div id="debugInfo"></div>
     </div>
     <script src="canvas-drawing.js"></script>
-<script>
-    // Handwriting Recognition Module
-class HandwritingRecognition {
-    constructor(ws, drawingCanvas, drawingContext, debugInfo) {
-        this.ws = ws;
-        this.drawingCanvas = drawingCanvas;
-        this.drawingContext = drawingContext;
-        this.debugInfo = debugInfo;
-        this.trace = [];
-        this.clientId = Math.random().toString(36).substr(2, 9);
-        
-        this.textLayer = document.createElement('div');
-        this.textLayer.id = 'handwriting-text-layer';
-        this.textLayer.style.position = 'absolute';
-        this.textLayer.style.top = '0';
-        this.textLayer.style.left = '0';
-        this.textLayer.style.pointerEvents = 'none';
-        this.textLayer.style.zIndex = '100';
-        drawingCanvas.parentElement.appendChild(this.textLayer);
-    }
-
-    updateDebugInfo(message, type = 'info') {
-        const timestamp = new Date().toLocaleTimeString();
-        const messageElement = document.createElement('div');
-        messageElement.textContent = `[${timestamp}] ${message}`;
-        
-        if (type === 'error') {
-            messageElement.style.color = 'red';
-        } else if (type === 'success') {
-            messageElement.style.color = 'green';
+    <script>
+        // Handwriting Recognition Module
+    class HandwritingRecognition {
+        constructor(ws, drawingCanvas, drawingContext, debugInfo) {
+            this.ws = ws;
+            this.drawingCanvas = drawingCanvas;
+            this.drawingContext = drawingContext;
+            this.debugInfo = debugInfo;
+            this.trace = [];
+            this.clientId = Math.random().toString(36).substr(2, 9);
+            
+            this.textLayer = document.createElement('div');
+            this.textLayer.id = 'handwriting-text-layer';
+            this.textLayer.style.position = 'absolute';
+            this.textLayer.style.top = '0';
+            this.textLayer.style.left = '0';
+            this.textLayer.style.pointerEvents = 'none';
+            this.textLayer.style.zIndex = '100';
+            drawingCanvas.parentElement.appendChild(this.textLayer);
         }
-        
-        this.debugInfo.prepend(messageElement);
-        console.log(`[Handwriting] ${message}`);
-    }
-
-    showRecognizedText(text, x, y) {
-        const textElement = document.createElement('div');
-        textElement.textContent = text;
-        textElement.style.position = 'absolute';
-        textElement.style.left = `${x}px`;
-        textElement.style.top = `${y}px`;
-        textElement.style.color = 'blue';
-        textElement.style.fontSize = '20px';
-        textElement.style.fontWeight = 'bold';
-        textElement.style.textShadow = '1px 1px 2px white';
-        textElement.style.animation = 'fadeOut 2s forwards';
-        
-        // Add keyframe animation
-        const styleSheet = document.styleSheets[0];
-        const keyframes = `
-            @keyframes fadeOut {
-                0% { opacity: 1; transform: translateY(0); }
-                70% { opacity: 1; transform: translateY(-10px); }
-                100% { opacity: 0; transform: translateY(-20px); }
+    
+        updateDebugInfo(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `[${timestamp}] ${message}`;
+            
+            if (type === 'error') {
+                messageElement.style.color = 'red';
+            } else if (type === 'success') {
+                messageElement.style.color = 'green';
             }
-        `;
-        styleSheet.insertRule(keyframes, styleSheet.cssRules.length);
-
-        this.textLayer.appendChild(textElement);
-
-        // Remove the text after animation
-        setTimeout(() => {
-            this.textLayer.removeChild(textElement);
-        }, 2000);
-    }
-
-    async recognizeHandwriting(trace) {
+            
+            this.debugInfo.prepend(messageElement);
+            console.log(`[Handwriting] ${message}`);
+        }
+    
+        showRecognizedText(text, x, y) {
+            const textElement = document.createElement('div');
+            textElement.textContent = text;
+            textElement.style.position = 'absolute';
+            textElement.style.left = `${x}px`;
+            textElement.style.top = `${y}px`;
+            textElement.style.color = 'blue';
+            textElement.style.fontSize = '20px';
+            textElement.style.fontWeight = 'bold';
+            textElement.style.textShadow = '1px 1px 2px white';
+            textElement.style.animation = 'fadeOut 2s forwards';
+            
+            // Add keyframe animation
+            const styleSheet = document.styleSheets[0];
+            const keyframes = `
+                @keyframes fadeOut {
+                    0% { opacity: 1; transform: translateY(0); }
+                    70% { opacity: 1; transform: translateY(-10px); }
+                    100% { opacity: 0; transform: translateY(-20px); }
+                }
+            `;
+            styleSheet.insertRule(keyframes, styleSheet.cssRules.length);
+    
+            this.textLayer.appendChild(textElement);
+    
+            // Remove the text after animation
+            setTimeout(() => {
+                this.textLayer.removeChild(textElement);
+            }, 2000);
+        }
+    
+        async recognizeHandwriting(trace) {
     // Log trace details
     console.log('Trace points:', trace);
     console.log('Trace length:', trace.length);
-
-    // Prepare data for Google Handwriting Recognition
-    const data = JSON.stringify({
-        "api_input": {
-            "input_traces": [trace],
-            "language": "en_US"
-        }
+    
+    // Skip if trace is too short
+    if (!trace || trace.length < 10) return;
+    
+    // Format trace data as required by Google API (three parallel arrays)
+    const inkArray = [[], [], []];
+    trace.forEach(point => {
+        inkArray[0].push(point.x);
+        inkArray[1].push(point.y);
+        // Add a timestamp or just use 0 if not available
+        inkArray[2].push(0);
     });
-
+    
+    // Prepare data exactly as in your working example
+    const data = JSON.stringify({
+        "requests": [{
+            "writing_guide": {
+                "writing_area_width": this.drawingCanvas.width,
+                "writing_area_height": this.drawingCanvas.height
+            },
+            "ink": [inkArray],
+            "language": "en"
+        }]
+    });
+    
     console.log('Sending data:', data);
-
+    
     try {
         const response = await fetch("https://www.google.com/inputtools/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8", {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                // Add these headers to help with potential CORS or request issues
-                "Access-Control-Allow-Origin": "*"
-            },
-            mode: 'cors', // Add CORS mode
+            headers: { "Content-Type": "application/json" },
             body: data
         });
 
@@ -181,16 +192,11 @@ class HandwritingRecognition {
 
         if (result[0] === "SUCCESS") {
             let recognizedWords = result[1][0][1];
-            console.log('Recognized words:', recognizedWords);
-
             if (recognizedWords && recognizedWords.length > 0) {
                 let bestWord = recognizedWords[0];
                 const ignoreChars = [".", "-", ",", "..", "\\"];
                 
-                if (ignoreChars.includes(bestWord)) {
-                    console.log('Ignored character:', bestWord);
-                    return;
-                }
+                if (ignoreChars.includes(bestWord)) return;
 
                 this.updateDebugInfo(`Recognized Word: ${bestWord}`);
 
@@ -212,18 +218,14 @@ class HandwritingRecognition {
                 return bestWord;
             }
         } else {
-            console.log('Recognition did not return SUCCESS');
+            this.updateDebugInfo(`Recognition did not return SUCCESS: ${result[0]}`, 'error');
         }
     } catch (error) {
         this.updateDebugInfo(`Recognition Error: ${error.message}`, 'error');
         console.error("Handwriting Recognition Error:", error);
-        
-        // Log more detailed error information
-        if (error.response) {
-            console.error('Error response:', await error.response.text());
-        }
     }
 }
+
     startTracing() {
         this.trace = [];
     }
@@ -238,69 +240,67 @@ class HandwritingRecognition {
         }
         this.trace = [];
     }
-
-    setupEventListeners() {
-        // Mouse events
-        this.drawingCanvas.addEventListener('mousedown', (e) => {
-            this.startTracing();
-            const rect = this.drawingCanvas.getBoundingClientRect();
-            this.addTracePoint(
-                e.clientX - rect.left, 
-                e.clientY - rect.top
-            );
-        });
-
-        this.drawingCanvas.addEventListener('mousemove', (e) => {
-            if (e.buttons > 0) {
+        setupEventListeners() {
+            // Mouse events
+            this.drawingCanvas.addEventListener('mousedown', (e) => {
+                this.startTracing();
                 const rect = this.drawingCanvas.getBoundingClientRect();
                 this.addTracePoint(
                     e.clientX - rect.left, 
                     e.clientY - rect.top
                 );
+            });
+    
+            this.drawingCanvas.addEventListener('mousemove', (e) => {
+                if (e.buttons > 0) {
+                    const rect = this.drawingCanvas.getBoundingClientRect();
+                    this.addTracePoint(
+                        e.clientX - rect.left, 
+                        e.clientY - rect.top
+                    );
+                }
+            });
+    
+            this.drawingCanvas.addEventListener('mouseup', () => {
+                this.endTracing();
+            });
+    
+            // Touch events
+            this.drawingCanvas.addEventListener('touchstart', (e) => {
+                this.startTracing();
+                const rect = this.drawingCanvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                this.addTracePoint(
+                    touch.clientX - rect.left, 
+                    touch.clientY - rect.top
+                );
+            }, { passive: true });
+    
+            this.drawingCanvas.addEventListener('touchmove', (e) => {
+                const rect = this.drawingCanvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                this.addTracePoint(
+                    touch.clientX - rect.left, 
+                    touch.clientY - rect.top
+                );
+            }, { passive: true });
+    
+            this.drawingCanvas.addEventListener('touchend', () => {
+                this.endTracing();
+            }, { passive: true });
+        }
+    
+        handleRemoteText(data) {
+            // Only show text from other clients
+            if (data.clientId !== this.clientId) {
+                this.showRecognizedText(data.text, data.x, data.y);
             }
-        });
-
-        this.drawingCanvas.addEventListener('mouseup', () => {
-            this.endTracing();
-        });
-
-        // Touch events
-        this.drawingCanvas.addEventListener('touchstart', (e) => {
-            this.startTracing();
-            const rect = this.drawingCanvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            this.addTracePoint(
-                touch.clientX - rect.left, 
-                touch.clientY - rect.top
-            );
-        }, { passive: true });
-
-        this.drawingCanvas.addEventListener('touchmove', (e) => {
-            const rect = this.drawingCanvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            this.addTracePoint(
-                touch.clientX - rect.left, 
-                touch.clientY - rect.top
-            );
-        }, { passive: true });
-
-        this.drawingCanvas.addEventListener('touchend', () => {
-            this.endTracing();
-        }, { passive: true });
-    }
-
-    handleRemoteText(data) {
-        // Only show text from other clients
-        if (data.clientId !== this.clientId) {
-            this.showRecognizedText(data.text, data.x, data.y);
         }
     }
-}
-
-// Export for use in main script
-window.HandwritingRecognition = HandwritingRecognition;
-</script>
-</script>
+    
+    // Export for use in main script
+    window.HandwritingRecognition = HandwritingRecognition;
+    </script>
     <script>
         const ws = new WebSocket("wss://multicanvas.onrender.com/");
         let peerConnection;
@@ -308,7 +308,7 @@ window.HandwritingRecognition = HandwritingRecognition;
         let animationFrameId;
         let remoteStream;
         let drawing;
-        
+
         const startButton = document.getElementById("startShare");
         const stopButton = document.getElementById("stopShare");
         const viewerCanvas = document.getElementById("viewer");
@@ -320,7 +320,20 @@ window.HandwritingRecognition = HandwritingRecognition;
         const clearButton = document.getElementById("clearDrawing");
         const toggleButton = document.getElementById("toggleDrawing");
         const debugInfo = document.getElementById("debugInfo");
-        
+
+        // Set canvas to full screen size
+        function resizeCanvas() {
+            drawingCanvas.width = window.innerWidth;
+            drawingCanvas.height = window.innerHeight;
+        }
+
+        // Initial resize
+        resizeCanvas();
+
+        // Resize canvas when window is resized
+        window.addEventListener('resize', resizeCanvas);
+
+
         function updateDebugInfo(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
             const messageElement = document.createElement('div');
@@ -381,6 +394,58 @@ window.HandwritingRecognition = HandwritingRecognition;
             });
         }
         
+        // Toggle drawing on/off
+        toggleButton.addEventListener('click', () => {
+            isDrawingEnabled = !isDrawingEnabled;
+            toggleButton.textContent = isDrawingEnabled ? 'Disable Drawing' : 'Enable Drawing';
+            drawingCanvas.style.pointerEvents = isDrawingEnabled ? 'auto' : 'none';
+        });
+
+        function drawStreamToCanvas(stream) {
+            const video = document.createElement('video');
+            video.muted = true;
+            video.autoplay = true;
+            video.playsInline = true;
+            video.srcObject = stream;
+        
+            const playPromise = video.play();
+        
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    updateDebugInfo(`Autoplay failed: ${error.message}`, 'error');
+                    video.load();
+                    video.play();
+                });
+            }
+
+            function renderFrame() {
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                    // Set canvas sizes to match video
+                    viewerCanvas.width = video.videoWidth;
+                    viewerCanvas.height = video.videoHeight;
+
+                    // Draw video frame to canvas
+                    canvasContext.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+                }
+
+                // Continue drawing frames if stream is active
+                if (stream.active) {
+                    animationFrameId = requestAnimationFrame(renderFrame);
+                } else {
+                    updateDebugInfo('Stream no longer active', 'info');
+                }
+            }
+
+            video.addEventListener('loadedmetadata', () => {
+                updateDebugInfo('Video metadata loaded, starting canvas rendering', 'success');
+                renderFrame();
+            });
+
+            video.addEventListener('error', (e) => {
+                updateDebugInfo(`Video error: ${e}`, 'error');
+            });
+        }
+
         async function createPeerConnection() {
             const configuration = {
                 iceServers: [
@@ -389,9 +454,9 @@ window.HandwritingRecognition = HandwritingRecognition;
                     { urls: 'stun:stun2.l.google.com:19302' }
                 ]
             };
-        
+
             peerConnection = new RTCPeerConnection(configuration);
-        
+
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
                     updateDebugInfo('Sending ICE candidate');
@@ -404,7 +469,7 @@ window.HandwritingRecognition = HandwritingRecognition;
                     }));
                 }
             };
-        
+
             peerConnection.ontrack = (event) => {
                 updateDebugInfo('Remote track received', 'success');
                 
@@ -412,19 +477,18 @@ window.HandwritingRecognition = HandwritingRecognition;
                 if (animationFrameId) {
                     cancelAnimationFrame(animationFrameId);
                 }
-        
+
                 // Store remote stream
                 remoteStream = event.streams[0];
-        
+
                 // Draw new stream to canvas
                 drawStreamToCanvas(remoteStream);
             };
-        
+
             return peerConnection;
         }
-        
-        // Initialize drawing functionality
-        document.addEventListener('DOMContentLoaded', () => {
+// Initialize drawing functionality
+document.addEventListener('DOMContentLoaded', () => {
             // Use the initialization function from canvas-drawing.js
             const initDrawing = initializeDrawing(ws, drawingCanvas, drawingContext, colorPicker, brushSize, debugInfo);
             drawing = initDrawing(clearButton, toggleButton);
@@ -437,7 +501,6 @@ window.HandwritingRecognition = HandwritingRecognition;
     );
     handwritingRecognition.setupEventListeners();
         });
-        
         startButton.addEventListener("click", async () => {
             try {
                 updateDebugInfo("Requesting screen share...");
@@ -449,23 +512,23 @@ window.HandwritingRecognition = HandwritingRecognition;
                     }, 
                     audio: false 
                 });
-        
+
                 // Local preview
                 drawStreamToCanvas(screenStream);
-        
+
                 // Create peer connection
                 await createPeerConnection();
-        
+
                 // Add screen stream tracks to peer connection
                 screenStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, screenStream);
                     updateDebugInfo(`Added ${track.kind} track`);
                 });
-        
+
                 // Create and send offer
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
-        
+
                 updateDebugInfo('Sending offer to server');
                 ws.send(JSON.stringify({ 
                     type: "signal", 
@@ -474,17 +537,17 @@ window.HandwritingRecognition = HandwritingRecognition;
                         offer: offer 
                     } 
                 }));
-        
+
                 startButton.disabled = true;
                 stopButton.disabled = false;
-        
+
             } catch (error) {
                 updateDebugInfo(`Screen share error: ${error.message}`, 'error');
                 console.error(error);
                 startButton.disabled = false;
             }
         });
-        
+
         stopButton.addEventListener("click", () => {
             updateDebugInfo('Stopping screen share');
             if (screenStream) {
@@ -499,83 +562,83 @@ window.HandwritingRecognition = HandwritingRecognition;
             if (viewerCanvas.width && viewerCanvas.height) {
                 canvasContext.clearRect(0, 0, viewerCanvas.width, viewerCanvas.height);
             }
-        
+
             // Stop animation frame
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
             }
-        
+
             startButton.disabled = false;
             stopButton.disabled = true;
             ws.send(JSON.stringify({ type: "stopShare" }));
         });
-        
+
         ws.onopen = () => {
             updateDebugInfo('WebSocket connection established', 'success');
         };
-        
+
         ws.onmessage = async (message) => {
-            try {
-                const data = JSON.parse(message.data);
-                updateDebugInfo(`Received message type: ${data.type}`);
-        
-                switch (data.type) {
-                    case "signal":
-                        const signalData = data.data;
-        
-                        // Handle offer on client side
-                        if (signalData.type === "offer") {
-                            updateDebugInfo('Received offer');
-                            
-                            // Create peer connection if not exists
-                            if (!peerConnection) {
-                                await createPeerConnection();
-                            }
-        
-                            // Set remote description
-                            await peerConnection.setRemoteDescription(
-                                new RTCSessionDescription(signalData.offer)
-                            );
-        
-                            // Create answer
-                            const answer = await peerConnection.createAnswer();
-                            await peerConnection.setLocalDescription(answer);
-        
-                            // Send answer back
-                            ws.send(JSON.stringify({ 
-                                type: "signal", 
-                                data: { 
-                                    type: "answer", 
-                                    answer: answer 
-                                } 
-                            }));
+    try {
+        const data = JSON.parse(message.data);
+        updateDebugInfo(`Received message type: ${data.type}`);
+
+        switch (data.type) {
+            case "signal":
+                const signalData = data.data;
+
+                // Handle offer on client side
+                if (signalData.type === "offer") {
+                    updateDebugInfo('Received offer');
+                    
+                    // Create peer connection if not exists
+                    if (!peerConnection) {
+                        await createPeerConnection();
+                    }
+
+                    // Set remote description
+                    await peerConnection.setRemoteDescription(
+                        new RTCSessionDescription(signalData.offer)
+                    );
+
+                    // Create answer
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+
+                    // Send answer back
+                    ws.send(JSON.stringify({ 
+                        type: "signal", 
+                        data: { 
+                            type: "answer", 
+                            answer: answer 
                         } 
-                        // Handle answer on host side
-                        else if (signalData.type === "answer") {
-                            updateDebugInfo('Received answer');
-                            await peerConnection.setRemoteDescription(
-                                new RTCSessionDescription(signalData.answer)
+                    }));
+                } 
+                // Handle answer on host side
+                else if (signalData.type === "answer") {
+                    updateDebugInfo('Received answer');
+                    await peerConnection.setRemoteDescription(
+                        new RTCSessionDescription(signalData.answer)
+                    );
+                } 
+                // Handle ICE candidates
+                else if (signalData.type === "candidate") {
+                    updateDebugInfo('Received ICE candidate');
+                    if (peerConnection) {
+                        try {
+                            await peerConnection.addIceCandidate(
+                                new RTCIceCandidate(signalData.candidate)
                             );
-                        } 
-                        // Handle ICE candidates
-                        else if (signalData.type === "candidate") {
-                            updateDebugInfo('Received ICE candidate');
-                            if (peerConnection) {
-                                try {
-                                    await peerConnection.addIceCandidate(
-                                        new RTCIceCandidate(signalData.candidate)
-                                    );
-                                    updateDebugInfo('Added ICE candidate', 'success');
-                                } catch (error) {
-                                    updateDebugInfo(`Failed to add ICE candidate: ${error.message}`, 'error');
-                                }
-                            }
+                            updateDebugInfo('Added ICE candidate', 'success');
+                        } catch (error) {
+                            updateDebugInfo(`Failed to add ICE candidate: ${error.message}`, 'error');
                         }
-                        break;
-        
-                    // Collaborative drawing events
-                    case "drawStart":
+                    }
+                }
+                break;
+
+            // Collaborative drawing events
+            case "drawStart":
                     case "draw":
                     case "drawEnd":
                     case "clearDrawing":

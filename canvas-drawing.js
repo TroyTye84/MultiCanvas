@@ -129,13 +129,24 @@ function initializeDrawing(ws, drawingCanvas, drawingContext, colorPicker, brush
                 type: "clearDrawing"
             }));
         });
-
-        // Toggle drawing on/off
-        toggleButton.addEventListener('click', () => {
+    
+        // Toggle drawing on/off with multiple event types
+        function toggleDrawingMode() {
+            console.log('Toggle button clicked, current state:', isDrawingEnabled);
             isDrawingEnabled = !isDrawingEnabled;
             toggleButton.textContent = isDrawingEnabled ? 'Disable Drawing' : 'Enable Drawing';
             drawingCanvas.style.pointerEvents = isDrawingEnabled ? 'auto' : 'none';
-        });
+            
+            // Add visual feedback
+            toggleButton.style.backgroundColor = isDrawingEnabled ? 'green' : 'red';
+        }
+    
+        // Add multiple event listeners to ensure responsiveness
+        toggleButton.addEventListener('click', toggleDrawingMode);
+        toggleButton.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent default touch behavior
+            toggleDrawingMode();
+        }, { passive: false });
     }
 
     // Handle remote drawing events
